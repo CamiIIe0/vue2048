@@ -7,51 +7,60 @@ on:
   pull_request:
 
 jobs:
-  chache:
-  - name: Cache
-  uses: actions/cache@v4.2.3
-  with:
-    # A list of files, directories, and wildcard patterns to cache and restore
-    path: 
-    # An explicit key for restoring and saving the cache
-    key: 
-    # An ordered multiline string listing the prefix-matched keys, that are used for restoring stale cache if no cache hit occurred for key. Note `cache-hit` returns false in this case.
-    restore-keys: # optional
-    # The chunk size used to split up large files during upload, in bytes
-    upload-chunk-size: # optional
-    # An optional boolean when enabled, allows windows runners to save or restore caches that can be restored or saved respectively on other platforms
-    enableCrossOsArchive: # optional, default is false
-    # Fail the workflow if cache entry is not found
-    fail-on-cache-miss: # optional, default is false
-    # Check if a cache entry exists for the given input(s) (key, restore-keys) without downloading the cache
-    lookup-only: # optional, default is false
-    # Run the post step to save the cache even if another step before fails
-    save-always: # optional, default is false
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable Corepack and Install PNPM
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest-10 --activate
 
-  - name: Azure Static Web Apps Deploy
-  uses: Azure/static-web-apps-deploy@v1
-  with:
-    # Action to perform
-    action: 
-    # Directory location of the application source code
-    app_location: 
-    # Required token
-    azure_static_web_apps_api_token: 
-    # Custom command for Oryx to run when building Azure Functions source code
-    api_build_command: # optional
-    # Directory location of the Azure Functions source code
-    api_location: # optional
-    # Identical in use to output_location
-    app_artifact_location: # optional
-    # Directory location of the compiled application code after building
-    output_location: # optional
-    # Custom command for Oryx to run when building application source code
-    app_build_command: # optional
-    # Token for interacting with the Github repository. Currently used only for commenting on Pull Requests.
-    repo_token: # optional
-    # Directory location where the routes.json file can be found in the source code
-    routes_location: # optional
-    # Skips the build step for the application source code if set to true.
-    skip_app_build: # optional
-          
+      - name: Cache PNPM Store and Node Modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            .pnpm-store
+            node_modules
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+              - name: Install Dependencies
+        run: |
+          pnpm config set store-dir .pnpm-store
+          pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: dist
+          path: dist/
+
+  deploy-qa:
+    name: Deploy to Azure Static Web App (QA)
+    needs: build
+    if: github.ref == 'refs/heads/qa'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+  
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: dist
+  
+      - name: Deploy to Azure Static Web Apps (QA)
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_QA_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: "upload"
+          app_location: "/dist" # where your built frontend lives
+          environment: "QA"
+            
           
