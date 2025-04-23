@@ -19,7 +19,7 @@
 
 on:
   push:
-    branches: [ "lab-9" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 env:
