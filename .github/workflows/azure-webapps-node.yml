@@ -14,16 +14,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js and enable corepack
-        uses: actions/setup-node@v3
+        uses: pnpm/action-setup@v4
         with:
-          node-version: 'latest'
-          cache: 'pnpm'
-
-      - name: Enable and prepare pnpm
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest-10 --activate
-          pnpm config set store-dir .pnpm-store
+          version: 10
 
       - name: Install Dependencies
         run: pnpm install
