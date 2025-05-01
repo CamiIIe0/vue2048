@@ -16,6 +16,11 @@ jobs:
       - name: Setup Node.js and enable corepack
         uses: pnpm/action-setup@v4
 
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
+
       - name: Install Dependencies
         run: pnpm install
 
