@@ -1,0 +1,58 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+      - lab9
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * 1'  # Every Monday at 08:00
+
+jobs:
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        run: pnpm build
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  lint-and-test:
+    name: Lint and Test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: build
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run Linter
+        run: pnpm lint
+
+      - name: Run Type Checking
+        run: pnpm type-check
+
+      - name: Run Tests
+        run: pnpm test
