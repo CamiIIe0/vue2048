@@ -1,0 +1,100 @@
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - lab9
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Deployment target (qa or prod)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 8 * * 1'  # Every Monday at 08:00
+
+jobs:
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - run: pnpm lint
+
+  typecheck:
+    name: Type Checking
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - run: pnpm type-check
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - run: pnpm test
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target != ''
+    needs: build
+    environment: ${{ github.event.inputs.deploy_target == 'prod' && 'PROD' || 'QA' }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Deploy to QA
+        if: github.event.inputs.deploy_target == 'qa'
+        run: >
+          pnpx @azure/static-web-apps-cli deploy ./dist
+          --app-name stapp-vue2048-qa
+          --env=production
+          --deployment-token ${{ secrets.AZURE_STATIC_WEB_APPS_TOKEN_QA_G }}
+
+      - name: Deploy to Azure Static Web App (PROD)
+        if: github.event.inputs.deploy_target == 'prod'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: deploy
+          app_location: dist
+          skip_app_build: true
+          deployment_environment: production
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_TOKEN_QA_G }}
