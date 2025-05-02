@@ -12,6 +12,10 @@ on:
         description: 'Deployment target (qa or prod)'
         required: false
         default: ''
+      run_checks:
+        description: 'Run static analysis and tests? (yes or no)'
+        required: false
+        default: 'no'
   schedule:
     - cron: '0 8 * * 1'  # Every Monday at 08:00
 
@@ -32,7 +36,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event.inputs.run_checks == 'yes'
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +47,7 @@ jobs:
   typecheck:
     name: Type Checking
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event.inputs.run_checks == 'yes'
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +58,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'pull_request' || github.event.inputs.run_checks == 'yes'
     needs: build
     steps:
       - uses: actions/checkout@v4
@@ -65,7 +69,7 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target != ''
+    if: github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_target == 'prod' || github.event.inputs.deploy_target == 'qa')
     needs: build
     environment: ${{ github.event.inputs.deploy_target == 'prod' && 'PROD' || 'QA' }}
     steps:
@@ -93,7 +97,6 @@ jobs:
         if: github.event.inputs.deploy_target == 'prod'
         uses: Azure/static-web-apps-deploy@v1
         with:
-          action: deploy
           app_location: dist
           skip_app_build: true
           deployment_environment: production
